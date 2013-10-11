@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="twb" default="build" xmlns:ivy="antlib:org.apache.ivy.ant">
+
+	<!-- 
+	A number of properties that serve to avoid having to repeat these settings 
+	in the targets below. Properties are write-once, once set they cannot be changed.                                       
+	-->
+	<property name="srcpath" value="src" />
+	<property name="buildpath" value="build" />
+	<property name="docpath" value="doc" />
+	<property name="distpath" value="dist" />
+	<property name="libpath" value="lib" />
+	<property name="jarfile" value="twb-cluster.jar" />
+
+	<!-- 
+	Define a classpath to be used in the compile, docs and run targets. 
+	-->
+	<path id="class.path">
+		<pathelement path="${buildpath}" />
+		<fileset dir="${libpath}">
+			<include name="**/*.jar" />
+		</fileset>
+	</path>
+
+	<!-- 
+	The build target compiles the Java source code. Note the reference  made to the 
+	classpath defined above as well as to the srcpath and buildpath properties.             
+	-->
+	<target name="build" depends="-init" description="--> compile the Java code">
+		<javac srcdir="${srcpath}" destdir="${buildpath}" classpathref="class.path" includeantruntime="false" />
+	</target>
+
+	<!-- 
+	The docs target invokes the JavaDoc tool to produce documentation for the Java code.
+	-->
+	<target name="javadoc" description="--> build the JavaDoc documentation">
+		<javadoc author="true" classpathref="class.path" destdir="doc" sourcepath="src" />
+	</target>
+
+	<!--
+	The jar target packages up the code in a .jar file so that it can be shipped to
+	customers (along perhaps with the dependencies in the lib/ directory.
+	-->
+	<target name="jar" depends="-init,build" description="--> package up the timeline demo into a .jar file">
+		<jar destfile="${distpath}/${jarfile}" basedir="${buildpath}" />
+	</target>
+
+	<!--
+	The run target executes the code. Note the declaration of the class that contains the
+	main() method, the reference to the classpath and how a command line argument is 
+	provided for the code.
+	-->
+	<target name="run" depends="-init,build" description="--> run the timeline demo">
+		<java classname="twb.clustering.DataStreamerMain" classpathref="class.path" fork="true" />
+	</target>
+
+	<!--
+	Run the JUnit tests. 
+	-->
+	<target name="test" depends="build" description="--> run the Junit tests">
+		<junit printsummary="yes" haltonfailure="yes">
+			<classpath>
+				<path refid="class.path"/>
+			</classpath>
+			<formatter type="plain" usefile="false" />
+			<batchtest>
+				<fileset dir="${buildpath}" includes="tests/**/*.class"/>
+			</batchtest>
+		</junit>
+	</target>
+
+	<!--
+	To remove any artefacts that are built from the source code it is sufficient to
+	remove the directories that were created by the -init target. Note that this
+	does not delete the srcpath
+	-->
+	<target name="clean" description="--> remove all built artefacts">
+		<delete includeemptydirs="true" quiet="true">
+			<fileset dir="${buildpath}" />
+			<fileset dir="${docpath}" />
+			<fileset dir="${distpath}" />
+			<fileset dir="${libpath}" />
+		</delete>
+	</target>
+
+	<!--
+	Retrieve .jar files for dependencies to the libpath directory. Note the way that tasks
+	provided by plugins have a namespace prefix, which is defined in the xmlns attribute of
+	the project element. 
+	-->
+	<target name="retrieve" depends="-install-ivy" description="--> Retrieve .jar files for dependencies">
+		<ivy:retrieve />
+	</target>
+
+	<!--
+	The -init target serves to set up the build environment. It is an internal target 
+	that is invoked through dependencies from other targets but is not normally invoked 
+	directly. It does not contain any tasks but rather just defined dependencies on
+	other initialisation tasks (see below for their definitions).
+	-->
+	<target name="-init" depends="-install-ivy,-mkdirs">
+	</target>
+
+	<!--
+	Create a number of directories that will be used during builds. 
+	-->
+	<target name="-mkdirs">
+		<mkdir dir="${buildpath}" />
+		<mkdir dir="${distpath}" />
+		<mkdir dir="${docpath}" />
+		<mkdir dir="${libpath}" />
+	</target>
+
+	<!-- =========================================================================== 	
+	Ivy targets have been adapted from the go-ivy build file at
+	https://svn.apache.org/repos/asf/ant/ivy/core/trunk/src/example/go-ivy/build.xml	
+	============================================================================ -->
+
+	<property name="ivy.jar.dir" value="${libpath}" />
+	<property name="ivy.jar.file" value="${ivy.jar.dir}/ivy.jar" />
+	<property name="ivy.install.version" value="2.2.0" />
+
+	<!--
+	Download the ivy.jar file if it does not yet exist. Note the use of the available
+	task to check if the file exists so we do not download it every time we run a
+	build.
+	-->
+	<available file="${ivy.jar.file}" property="skip.download" />
+	<target name="-download-ivy" depends="-mkdirs" unless="skip.download">
+		<mkdir dir="${ivy.jar.dir}" />
+		<echo message="installing ivy..." />
+		<get src="http://repo1.maven.org/maven2/org/apache/ivy/ivy/${ivy.install.version}/ivy-${ivy.install.version}.jar" dest="${ivy.jar.file}" usetimestamp="true" />
+	</target>
+
+	<!--
+	Make the tasks that the ivy.jar file contains available in this Ant build.
+	-->
+	<target name="-install-ivy" depends="-download-ivy">
+		<path id="ivy.lib.path">
+			<pathelement location="${ivy.jar.file}" />
+		</path>
+		<taskdef resource="org/apache/ivy/ant/antlib.xml" uri="antlib:org.apache.ivy.ant" classpathref="ivy.lib.path" />
+	</target>
+</project>
